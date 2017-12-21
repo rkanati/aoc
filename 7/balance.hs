@@ -2,6 +2,7 @@
 import Data.Char (isAlpha)
 import Data.List (mapAccumL, intercalate)
 import Data.Either (partitionEithers)
+import Data.Maybe (fromJust)
 
 data Node = Node String Int [Node]
 
@@ -27,8 +28,25 @@ showNode is (Node n w cs) = indent is ++ n ++ " " ++ show w
 instance Show Node where
   show = showNode []
 
+argmax f xs = fmap fst $ foldr' choose Nothing $ zip xs (map f xs) where
+  choose Nothing        (x', fx') = Just (x', fx')
+  choose (Just (x, fx)) (x', fx') =
+    Just $ if fx' > fx then (x', fx') else (x, fx)
+
 findImbalance :: Node -> Int
-findImbalance (Node _ w cs)
+findImbalance = go 0 . weighTree where
+  go target (Node _ w []) = target - w
+  go target (Node _ w cs) =
+    case argMax (abs.go target') cs of
+      Just dw -> dw
+      Nothing -> 
+    target' = (target - w) `div` (length cs)
+
+  weighTree (Node n w cs) = Node n w' cs' where
+    cs' = map weighTree cs
+    w' = w + foldMap getWeight cs'
+
+  getWeight (Node _ w _) = w
 
 buildTree :: [Node] -> [RefNode] -> Node
 buildTree [n] [] = n
