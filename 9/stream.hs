@@ -3,13 +3,20 @@
 
 import Control.Applicative
 import Control.Arrow (first)
-import Data.Maybe (catMaybes)
 
-data Group = Group [Group] deriving (Show)
+data Item
+  = Group [Item]
+  | Garbage !Int
+  deriving (Show)
 
-scoreStream :: Group -> Int
+scoreStream :: Item -> Int
 scoreStream = go 1 where
   go lv (Group cs) = lv + sum (map (go (lv + 1)) cs)
+  go _  (Garbage _) = 0
+
+weighGarbage :: Item -> Int
+weighGarbage (Group cs) = sum (map weighGarbage cs)
+weighGarbage (Garbage w) = w
 
 data P a = P { runParser :: String -> Maybe (a, String) }
 
@@ -45,26 +52,23 @@ get = P $ \case
 list :: Char -> P a -> P [a]
 list sep p = ((:) <$> p <*> many (expect sep *> p)) <|> pure []
 
-parseGarbage :: P ()
-parseGarbage = ()
+parseGarbage :: P Item
+parseGarbage = (Garbage . sum)
   <$  expect '<'
-  <*  many (get >>= \case
-        '!' -> () <$ get
+  <*> many (get >>= \case
+        '!' -> 0 <$ get
         '>' -> empty
-        _   -> pure ())
+        _   -> pure 1)
   <*  expect '>'
 
-parseItem :: P (Maybe Group)
-parseItem = (Nothing <$ parseGarbage) <|> (Just <$> parseGroup)
+parseItem :: P Item
+parseItem = parseGarbage <|> parseGroup
 
-parseGroup :: P Group
+parseGroup :: P Item
 parseGroup = Group
   <$  expect '{'
-  <*> (catMaybes <$> list ',' parseItem)
+  <*> list ',' parseItem
   <*  expect '}'
-
---parseText :: P String
---parseText = many $ (parseGarbage *> get) <|> get
 
 evalParser :: P a -> String -> Maybe a
 evalParser p = fmap fst . runParser p
@@ -72,9 +76,7 @@ evalParser p = fmap fst . runParser p
 main :: IO ()
 main = do
   input <- readFile "input"
---let input = "{<!>!!}{{}}{}{}{}}!<!!!<>{},{}}"
---let (Just stripped) = evalParser parseText input
   let (Just root)     = evalParser parseGroup input
---putStrLn.show $ root
   putStrLn.show.scoreStream $ root
+  putStrLn.show.weighGarbage $ root
 
