@@ -30,23 +30,24 @@ parseInstr (reg:op:imm:test) = Inst d reg $ parseTest test where
     "inc" ->          read imm
     "dec" -> negate $ read imm
 
-run :: [Instruction] -> [(String, Int)]
-run = fst . mapAccumL go [] where
-  go regs (Inst delta dest test) =
+run :: [Instruction] -> ([(String, Int)], Int)
+run = fst . mapAccumL go ([], 0) where
+  go (regs, hi) (Inst delta dest test) =
     if doTest regs test
-      then (incReg regs dest delta, ())
-      else (regs, ())
+      then (incReg regs hi dest delta, ())
+      else ((regs, hi),                ())
   doTest regs (Test cmp reg ref) = doCompare cmp val ref where
     val = maybe 0 id $ lookup reg regs
-  incReg regs reg delta =
+  incReg regs hi reg delta =
     case break (\(k, _) -> k == reg) regs of
-      (ls, (_, v) : rs) -> (reg, v + delta) : (ls ++ rs)
-      (_,  [])          -> (reg,     delta) : regs
+      (ls, (_, v) : rs) -> ((reg, v + delta) : (ls ++ rs), max hi (v + delta))
+      (_,  [])          -> ((reg,     delta) : regs,       max hi delta)
 
 main :: IO ()
 main = do
   input <- (map (parseInstr.words) . lines) <$> readFile "input"
-  let regs = run input
+  let (regs, hi) = run input
   putStrLn.show.maximum.map snd $ regs
+  putStrLn.show $ hi
 --traverse_ (putStrLn.show) input
 
