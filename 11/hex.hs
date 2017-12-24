@@ -3,6 +3,7 @@
 import Data.Char (toUpper)
 import Control.Applicative (liftA2)
 import Data.Foldable (foldr')
+import Data.List (inits)
 
 data Dir = N | S | NE | NW | SE | SW deriving (Read, Show)
 
@@ -42,8 +43,8 @@ toVec = \case
   SW -> V2 (-1) (-1)
 
 nSteps disp = diag + ortho where
-  diag = minimum (abs disp)
-  ortho = case abs (disp - diag *^ signum disp) of
+  !diag = minimum (abs disp)
+  !ortho = case abs (disp - diag *^ signum disp) of
     V2 x y | y <= 1 -> x
     V2 0 y          -> y `div` 2
 
@@ -52,10 +53,11 @@ parse "" = []
 parse s = read (map toUpper pref) : parse (drop 1 suff) where
   (pref, suff) = break (==',') s
 
+disp = foldr' (+) 0 . map toVec
+
 main = do
   input <- parse <$> readFile "input"
---let input = [SE,NE,N,N]
-  let disp = foldr' (+) 0 $ map toVec input
-  putStrLn.show $ disp
-  putStrLn.show $ nSteps disp
+  let d = disp input
+  putStrLn.show $ nSteps d
+  putStrLn.show $ maximum . map (nSteps . disp) . inits $ input
 
